@@ -454,7 +454,16 @@ export default function GanttDiagram({ vorgaenge, abhaengigkeiten, startDatum, s
 
           const bx = toX(task.fruehesterAnfang);
           if (bx === null) return null;
-          const bw = Math.max((task.dauer || 1) * DAY_WIDTH, 6);
+          // Sammelvorgänge: Breite aus FAZ/FEZ berechnen (dauer ist 0)
+          let bw;
+          if (task.typ === 'Sammelvorgang' && task.fruehesterAnfang && task.fruehestesEnde) {
+            const startDate = new Date(task.fruehesterAnfang);
+            const endDate = new Date(task.fruehestesEnde);
+            const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
+            bw = Math.max(diffDays * DAY_WIDTH, 6);
+          } else {
+            bw = Math.max((task.dauer || 1) * DAY_WIDTH, 6);
+          }
           const by = cy + BAR_PAD;
 
           if (task.typ === 'Sammelvorgang') {

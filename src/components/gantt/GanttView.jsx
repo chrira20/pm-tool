@@ -411,7 +411,9 @@ export default function GanttView({ projekt, onUpdate }) {
 
                       {/* Dauer */}
                       <td className="px-2 py-0 w-12 text-center" style={{ color: 'var(--pm-text-muted)' }}>
-                        {istMeilenstein ? 'MS' : `${v.dauer}d`}
+                        {istMeilenstein ? 'MS' : v.typ === 'Sammelvorgang' && v.fruehesterAnfang && v.fruehestesEnde
+                          ? `${Math.round((new Date(v.fruehestesEnde) - new Date(v.fruehesterAnfang)) / (1000 * 60 * 60 * 24))}d`
+                          : `${v.dauer}d`}
                       </td>
 
                       {/* FAZ mit Überfällig-Badge */}
