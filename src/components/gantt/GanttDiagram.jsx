@@ -454,13 +454,22 @@ export default function GanttDiagram({ vorgaenge, abhaengigkeiten, startDatum, s
 
           const bx = toX(task.fruehesterAnfang);
           if (bx === null) return null;
-          // Sammelvorgänge: Breite aus FAZ/FEZ berechnen (dauer ist 0)
+          // Sammelvorgänge: Breite aus visuellen Kind-Endpositionen berechnen
           let bw;
-          if (task.typ === 'Sammelvorgang' && task.fruehesterAnfang && task.fruehestesEnde) {
-            const startDate = new Date(task.fruehesterAnfang);
-            const endDate = new Date(task.fruehestesEnde);
-            const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24));
-            bw = Math.max(diffDays * DAY_WIDTH, 6);
+          if (task.typ === 'Sammelvorgang') {
+            const kinder = vorgaenge.filter(v => v.elternId === task.id);
+            if (kinder.length > 0) {
+              const childEnds = kinder.map(k => {
+                const kx = toX(k.fruehesterAnfang);
+                if (kx === null) return 0;
+                const kw = k.typ === 'Meilenstein' ? 12 : (k.typ === 'Sammelvorgang' ? 0 : (k.dauer || 1) * DAY_WIDTH);
+                return kx + kw;
+              });
+              const maxEnd = Math.max(...childEnds);
+              bw = Math.max(maxEnd - bx, 6);
+            } else {
+              bw = 6;
+            }
           } else {
             bw = Math.max((task.dauer || 1) * DAY_WIDTH, 6);
           }
