@@ -75,8 +75,12 @@ export default function GanttDiagram({ vorgaenge, abhaengigkeiten, startDatum, s
     }
     const minStr = strs.reduce((a, b) => (a < b ? a : b));
     const maxStr = strs.reduce((a, b) => (a > b ? a : b));
-    const s = addDays(parseISO(minStr), -2);
-    const e = addDays(parseISO(maxStr), 7);
+    // Puffer: auf vorherigen Montag abrunden für saubere Wochenausrichtung
+    let s = addDays(parseISO(minStr), -3);
+    const dayOfWeek = s.getDay(); // 0=So, 1=Mo, ...
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    s = addDays(s, -daysToMonday); // auf Montag abrunden
+    const e = addDays(parseISO(maxStr), 10);
     return { projStart: s, daySpan: Math.max(differenceInCalendarDays(e, s) + 1, 42) };
   }, [vorgaenge, startDatum, today]);
 
