@@ -454,7 +454,8 @@ export default function GanttDiagram({ vorgaenge, abhaengigkeiten, startDatum, s
 
           const bx = toX(task.fruehesterAnfang);
           if (bx === null) return null;
-          // Sammelvorgänge: Breite aus visuellen Kind-Endpositionen berechnen
+          // Balkenbreite aus Kalendertagen (FAZ→FEZ) berechnen für konsistente Darstellung
+          // Position (bx) nutzt Kalendertage, daher muss Breite ebenfalls Kalendertage nutzen
           let bw;
           if (task.typ === 'Sammelvorgang') {
             const kinder = vorgaenge.filter(v => v.elternId === task.id);
@@ -462,14 +463,18 @@ export default function GanttDiagram({ vorgaenge, abhaengigkeiten, startDatum, s
               const childEnds = kinder.map(k => {
                 const kx = toX(k.fruehesterAnfang);
                 if (kx === null) return 0;
-                const kw = k.typ === 'Meilenstein' ? 12 : (k.typ === 'Sammelvorgang' ? 0 : (k.dauer || 1) * DAY_WIDTH);
-                return kx + kw;
+                const endX = toX(k.fruehestesEnde);
+                return endX !== null ? endX + DAY_WIDTH : kx + DAY_WIDTH;
               });
               const maxEnd = Math.max(...childEnds);
               bw = Math.max(maxEnd - bx, 6);
             } else {
               bw = 6;
             }
+          } else if (task.fruehesterAnfang && task.fruehestesEnde) {
+            // Breite = Kalendertage von FAZ bis FEZ + 1 Tag (FEZ ist inklusiv)
+            const endX = toX(task.fruehestesEnde);
+            bw = Math.max(endX - bx + DAY_WIDTH, 6);
           } else {
             bw = Math.max((task.dauer || 1) * DAY_WIDTH, 6);
           }
