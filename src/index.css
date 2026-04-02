@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+/* PM-Tool Farbsystem laut Masterprompt Abschnitt E.1 */
+:root {
+  --pm-bg: #F8F9FA;
+  --pm-panel: #F1F3F5;
+  --pm-bar-default: #3B82F6;
+  --pm-bar-critical: #EF4444;
+  --pm-bar-done: #22C55E;
+  --pm-bar-overdue: #F59E0B;
+  --pm-milestone: #8B5CF6;
+  --pm-summary: #1E293B;
+  --pm-weekend: #F1F5F9;
+  --pm-today: #EF4444;
+  --pm-overload: rgba(239, 68, 68, 0.5);
+
+  /* Design-Tokens v2 */
+  --pm-sidebar-bg:      #0F172A;
+  --pm-header-bg:       #1E293B;
+  --pm-surface:         #F8FAFC;
+  --pm-table-bg:        #FFFFFF;
+  --pm-border:          #E2E8F0;
+  --pm-border-strong:   #CBD5E1;
+  --pm-text-primary:    #0F172A;
+  --pm-text-secondary:  #475569;
+  --pm-text-muted:      #94A3B8;
+  --pm-accent:          #2563EB;
+  --pm-accent-hover:    #1D4ED8;
+  --pm-accent-light:    #EFF6FF;
+  --pm-success:         #16A34A;
+  --pm-success-bg:      #F0FDF4;
+  --pm-warning:         #D97706;
+  --pm-warning-bg:      #FFFBEB;
+  --pm-danger:          #DC2626;
+  --pm-danger-bg:       #FEF2F2;
+  --pm-row-summary:     #F1F5F9;
+  --pm-row-zebra:       #FAFAFA;
+  --pm-sidebar-text:    #94A3B8;
+  --pm-sidebar-active:  #FFFFFF;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--pm-surface);
+  color: var(--pm-text-primary);
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Toast slide-up Animation */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Kontext-Menü fade-in */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Gantt-Popover fade */
+@keyframes popoverIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Touch-Optimierungen */
+@media (pointer: coarse) {
+  /* Größere Tap-Targets auf Touchscreens */
+  button, [role="button"], a, select, input[type="checkbox"] {
+    min-height: 36px;
+    min-width: 36px;
+  }
+  /* Kein Hover-Effekt auf Touch (vermeidet "sticky hover") */
+  .group:hover .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+}
+
+/* Smooth-Drag-Cursor */
+.cursor-grabbing, .cursor-grabbing * {
+  cursor: grabbing !important;
+}

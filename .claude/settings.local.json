@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./node_modules/.bin/vite build:*)",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool\\\\node_modules'' | Select-Object -First 10 Name\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; node node_modules/vite/bin/vite.js build 2>&1\")",
+      "Bash(powershell.exe -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; npm install 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; npm install 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; npm install --legacy-peer-deps 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; node node_modules/vite/bin/vite.js build 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; npm install react-is --legacy-peer-deps 2>&1\")",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"Set-Location ''C:\\\\Users\\\\chris\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\3a48be83-ffdd-4428-a281-bb710fb4c2c7\\\\20bcd79b-308e-4170-ad0e-767b1b844ea9\\\\local_3edea19a-8f60-4422-af43-4463973425b7\\\\outputs\\\\pm-tool''; Start-Process node -ArgumentList ''node_modules/vite/bin/vite.js'' -PassThru | Select-Object Id; Start-Sleep 3; Write-Output ''Server started''\")",
+      "Bash(pip install:*)",
+      "Bash(python -c \":*)",
+      "Bash(powershell.exe -ExecutionPolicy Bypass -Command \"node node_modules/vite/bin/vite.js build 2>&1\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(python create_manual_v2.py)",
+      "Bash(npm run:*)"
+    ]
+  }
+}
