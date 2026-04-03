@@ -33,11 +33,15 @@ export function ToastProvider({ children }) {
   const idRef = useRef(0);
 
   const addToast = useCallback((message, type = 'info', duration = 2500) => {
-    const id = ++idRef.current;
-    setToasts((prev) => [...prev.slice(-4), { id, message, type }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, duration);
+    // Deduplizierung: gleiche Nachricht nicht mehrfach gleichzeitig anzeigen
+    setToasts((prev) => {
+      if (prev.some((t) => t.message === message)) return prev;
+      const id = ++idRef.current;
+      setTimeout(() => {
+        setToasts((p) => p.filter((t) => t.id !== id));
+      }, duration);
+      return [...prev.slice(-4), { id, message, type }];
+    });
   }, []);
 
   return (

@@ -601,8 +601,16 @@ export default function GanttView({ projekt, onUpdate }) {
                   max="100"
                   value={selectedTask.fortschritt}
                   onChange={(e) => {
+                    // Während des Ziehens: nur Wert setzen, keine OOS-Prüfung
+                    updateVorgang(selectedTask.id, { fortschritt: parseInt(e.target.value) });
+                  }}
+                  onPointerUp={(e) => {
+                    // Beim Loslassen: einmalige OOS-Prüfung
                     const val = parseInt(e.target.value);
-                    setzeFortschrittMitPruefung(selectedTask.id, val, null);
+                    const { warnung, nachricht } = pruefeFortschrittsAenderung(
+                      selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
+                    );
+                    if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
                   }}
                   className="w-full"
                   style={{ accentColor: 'var(--pm-accent)' }}
