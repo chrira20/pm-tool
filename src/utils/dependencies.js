@@ -1,100 +1,85 @@
 /**
  * Abhängigkeits-Validierung für Fortschrittsänderungen
  *
- * Prüft ob ein Vorgang Fortschritt eintragen darf, wenn seine Vorgänger
- * noch nicht abgeschlossen sind (Out-of-Sequence Detection).
+ * Prüft ob ein Vorgang Fortschritt eintragen darf, wenn in seiner
+ * gesamten Vorgänger-KETTE noch nicht alles abgeschlossen ist.
+ * (Transitive Out-of-Sequence Detection)
  *
  * Orientiert sich am Primavera P6 "Flexible"-Modus:
  * Fortschritt wird zugelassen, aber mit Warnung angezeigt.
  */
 
 /**
- * Sammelt ALLE Vorgänger eines Vorgangs (direkte + geerbte vom Sammelvorgang).
- * Wenn der Vorgang ein Kind eines Sammelvorgangs ist und der Sammelvorgang
- * eigene Vorgänger hat, erben die Kinder diese Abhängigkeiten.
+ * Sammelt ALLE transitiven Vorgänger eines Vorgangs.
+ * Folgt der gesamten Abhängigkeitskette rückwärts + erbt vom Sammelvorgang.
  *
- * @param {string} taskId - ID des Vorgangs
- * @param {Array} vorgaenge - Alle Vorgänge
- * @param {Array} abhaengigkeiten - Alle Abhängigkeiten
- * @returns {Array<{dep: Object, vorgaenger: Object, geerbt: boolean}>}
- */
-export function getEffektiveVorgaenger(taskId, vorgaenge, abhaengigkeiten) {
-  const task = vorgaenge.find(v => v.id === taskId);
-  if (!task) return [];
-
-  const result = [];
-
-  // 1. Direkte Vorgänger
-  const direkteDeps = abhaengigkeiten.filter(d => d.nachfolgerId === taskId);
-  for (const dep of direkteDeps) {
-    const vorgaenger = vorgaenge.find(v => v.id === dep.vorgaengerId);
-    if (vorgaenger) {
-      result.push({ dep, vorgaenger, geerbt: false });
-    }
-  }
-
-  // 2. Geerbte Vorgänger vom Eltern-Sammelvorgang (rekursiv)
-  let current = task;
-  while (current.elternId) {
-    const eltern = vorgaenge.find(v => v.id === current.elternId);
-    if (!eltern) break;
-
-    const elternDeps = abhaengigkeiten.filter(d => d.nachfolgerId === eltern.id);
-    for (const dep of elternDeps) {
-      const vorgaenger = vorgaenge.find(v => v.id === dep.vorgaengerId);
-      if (vorgaenger) {
-        // Nur hinzufügen wenn nicht schon durch direkte Deps abgedeckt
-        const bereitsVorhanden = result.some(r => r.vorgaenger.id === vorgaenger.id);
-        if (!bereitsVorhanden) {
-          result.push({ dep, vorgaenger, geerbt: true });
-        }
-      }
-    }
-
-    current = eltern;
-  }
-
-  return result;
-}
-
-/**
- * Prüft ob ein Vorgang "Out-of-Sequence" ist — also Fortschritt > 0 hat,
- * obwohl mindestens ein (effektiver) Vorgänger noch nicht bei 100% ist.
+ * Beispiel: A → B → C → D
+ * getAlleVorgaenger(D) = [C, B, A]
  *
  * @param {string} taskId
  * @param {Array} vorgaenge
  * @param {Array} abhaengigkeiten
- * @returns {{ outOfSequence: boolean, offeneVorgaenger: Array<{name: string, fortschritt: number, geerbt: boolean}> }}
+ * @returns {Array<{id: string, name: string, fortschritt: number}>}
+ */
+export function getAlleVorgaengerTransitiv(taskId, vorgaenge, abhaengigkeiten) {
+  const besucht = new Set();
+  const ergebnis = [];
+
+  function sammle(id) {
+    if (besucht.has(id)) return;
+    besucht.add(id);
+
+    const task = vorgaenge.find(v => v.id === id);
+    if (!task) return;
+
+    // 1. Direkte Vorgänger aus Abhängigkeiten
+    const deps = abhaengigkeiten.filter(d => d.nachfolgerId === id);
+    for (const dep of deps) {
+      const vorg = vorgaenge.find(v => v.id === dep.vorgaengerId);
+      if (vorg && !besucht.has(vorg.id)) {
+        ergebnis.push(vorg);
+        sammle(vorg.id); // Rekursiv weiter zurück
+      }
+    }
+
+    // 2. Geerbte Vorgänger vom Eltern-Sammelvorgang
+    if (task.elternId) {
+      const eltern = vorgaenge.find(v => v.id === task.elternId);
+      if (eltern) {
+        const elternDeps = abhaengigkeiten.filter(d => d.nachfolgerId === eltern.id);
+        for (const dep of elternDeps) {
+          const vorg = vorgaenge.find(v => v.id === dep.vorgaengerId);
+          if (vorg && !besucht.has(vorg.id)) {
+            ergebnis.push(vorg);
+            sammle(vorg.id);
+          }
+        }
+      }
+    }
+  }
+
+  sammle(taskId);
+  return ergebnis;
+}
+
+/**
+ * Prüft ob ein Vorgang "Out-of-Sequence" ist — also Fortschritt > 0 hat,
+ * obwohl irgendwo in seiner Vorgänger-Kette ein Vorgang unter 100% ist.
+ *
+ * @param {string} taskId
+ * @param {Array} vorgaenge
+ * @param {Array} abhaengigkeiten
+ * @returns {{ outOfSequence: boolean, offeneVorgaenger: Array }}
  */
 export function pruefeOutOfSequence(taskId, vorgaenge, abhaengigkeiten) {
   const task = vorgaenge.find(v => v.id === taskId);
   if (!task) return { outOfSequence: false, offeneVorgaenger: [] };
-
-  // Sammelvorgänge selbst nicht prüfen (ihr Fortschritt ist berechnet)
   if (task.typ === 'Sammelvorgang') return { outOfSequence: false, offeneVorgaenger: [] };
 
-  const effektive = getEffektiveVorgaenger(taskId, vorgaenge, abhaengigkeiten);
-  const offeneVorgaenger = [];
-
-  for (const { vorgaenger, geerbt } of effektive) {
-    // Prüfe ob der Vorgänger (oder seine Kinder bei Sammelvorgang) abgeschlossen ist
-    let vorgaengerFortschritt;
-    if (vorgaenger.typ === 'Sammelvorgang') {
-      // Sammelvorgang: Prüfe den berechneten Gesamtfortschritt
-      vorgaengerFortschritt = vorgaenger.fortschritt;
-    } else {
-      vorgaengerFortschritt = vorgaenger.fortschritt;
-    }
-
-    if (vorgaengerFortschritt < 100) {
-      offeneVorgaenger.push({
-        id: vorgaenger.id,
-        name: vorgaenger.name,
-        fortschritt: vorgaengerFortschritt,
-        geerbt,
-      });
-    }
-  }
+  const alleVorgaenger = getAlleVorgaengerTransitiv(taskId, vorgaenge, abhaengigkeiten);
+  const offeneVorgaenger = alleVorgaenger
+    .filter(v => v.fortschritt < 100 && v.typ !== 'Sammelvorgang')
+    .map(v => ({ id: v.id, name: v.name, fortschritt: v.fortschritt }));
 
   return {
     outOfSequence: offeneVorgaenger.length > 0 && task.fortschritt > 0,
@@ -105,52 +90,25 @@ export function pruefeOutOfSequence(taskId, vorgaenge, abhaengigkeiten) {
 /**
  * Prüft ob eine Fortschrittsänderung eine Out-of-Sequence-Warnung erzeugen soll.
  * Wird VOR dem Setzen des Fortschritts aufgerufen.
- *
- * @param {string} taskId
- * @param {number} neuerFortschritt
- * @param {Array} vorgaenge
- * @param {Array} abhaengigkeiten
- * @returns {{ warnung: boolean, nachricht: string, offeneVorgaenger: Array }}
  */
 export function pruefeFortschrittsAenderung(taskId, neuerFortschritt, vorgaenge, abhaengigkeiten) {
-  // Kein Check nötig wenn Fortschritt auf 0 zurückgesetzt wird
   if (neuerFortschritt === 0) {
     return { warnung: false, nachricht: '', offeneVorgaenger: [] };
   }
 
-  const { offeneVorgaenger } = pruefeOutOfSequence(taskId, vorgaenge, abhaengigkeiten);
+  const alleVorgaenger = getAlleVorgaengerTransitiv(taskId, vorgaenge, abhaengigkeiten);
+  const offene = alleVorgaenger
+    .filter(v => v.fortschritt < 100 && v.typ !== 'Sammelvorgang')
+    .map(v => ({ id: v.id, name: v.name, fortschritt: v.fortschritt }));
 
-  // Wenn der Task selbst noch keinen Fortschritt hat, aber wir ihn setzen wollen,
-  // müssen wir prüfen ob Vorgänger offen sind
-  if (offeneVorgaenger.length === 0) {
-    // Nochmal direkt prüfen (für den Fall dass der Task noch 0% hat)
-    const effektive = getEffektiveVorgaenger(taskId, vorgaenge, abhaengigkeiten);
-    const offene = effektive
-      .filter(({ vorgaenger }) => vorgaenger.fortschritt < 100)
-      .map(({ vorgaenger, geerbt }) => ({
-        id: vorgaenger.id,
-        name: vorgaenger.name,
-        fortschritt: vorgaenger.fortschritt,
-        geerbt,
-      }));
-
-    if (offene.length > 0) {
-      const namen = offene.map(v => `"${v.name}" (${v.fortschritt}%)`).join(', ');
-      const geerbteHinweis = offene.some(v => v.geerbt) ? ' (geerbt vom Sammelvorgang)' : '';
-      return {
-        warnung: true,
-        nachricht: `Vorgänger noch nicht abgeschlossen: ${namen}${geerbteHinweis}`,
-        offeneVorgaenger: offene,
-      };
-    }
-  }
-
-  if (offeneVorgaenger.length > 0) {
-    const namen = offeneVorgaenger.map(v => `"${v.name}" (${v.fortschritt}%)`).join(', ');
+  if (offene.length > 0) {
+    // Nur den nächsten offenen Vorgänger in der Kette anzeigen (nicht alle)
+    const naechster = offene[offene.length - 1]; // letzter = direktester
+    const weitere = offene.length > 1 ? ` (+${offene.length - 1} weitere)` : '';
     return {
       warnung: true,
-      nachricht: `Vorgänger noch nicht abgeschlossen: ${namen}`,
-      offeneVorgaenger,
+      nachricht: `Vorgänger offen: "${naechster.name}" (${naechster.fortschritt}%)${weitere}`,
+      offeneVorgaenger: offene,
     };
   }
 
@@ -159,7 +117,6 @@ export function pruefeFortschrittsAenderung(taskId, neuerFortschritt, vorgaenge,
 
 /**
  * Findet alle Vorgänge im Projekt die aktuell Out-of-Sequence sind.
- * Für die visuelle Kennzeichnung in der Gantt-Tabelle und im Board.
  *
  * @param {Array} vorgaenge
  * @param {Array} abhaengigkeiten
@@ -167,14 +124,10 @@ export function pruefeFortschrittsAenderung(taskId, neuerFortschritt, vorgaenge,
  */
 export function findeOutOfSequenceVorgaenge(vorgaenge, abhaengigkeiten) {
   const oosTasks = new Set();
-
   for (const v of vorgaenge) {
     if (v.typ === 'Sammelvorgang' || v.fortschritt === 0) continue;
     const { outOfSequence } = pruefeOutOfSequence(v.id, vorgaenge, abhaengigkeiten);
-    if (outOfSequence) {
-      oosTasks.add(v.id);
-    }
+    if (outOfSequence) oosTasks.add(v.id);
   }
-
   return oosTasks;
 }

@@ -360,7 +360,7 @@ export default function GanttView({ projekt, onUpdate }) {
                       className="border-b cursor-pointer transition-colors group"
                       title={istOOS ? '⚠ Out-of-Sequence: Vorgänger nicht abgeschlossen' : ''}
                     >
-                      {/* Zeilennummer / Collapse-Toggle */}
+                      {/* Zeilennummer / Collapse-Toggle / OOS-Warnung */}
                       <td className="w-8 text-center font-mono select-none" style={{ color: 'var(--pm-text-muted)', fontSize: '10px' }}>
                         {hasChildren ? (
                           <button
@@ -370,6 +370,8 @@ export default function GanttView({ projekt, onUpdate }) {
                           >
                             {isCollapsed ? '▸' : '▾'}
                           </button>
+                        ) : istOOS ? (
+                          <span style={{ color: '#F59E0B', fontSize: '13px' }} title="Out-of-Sequence: Vorgänger nicht abgeschlossen">⚠</span>
                         ) : (
                           idx + 1
                         )}
