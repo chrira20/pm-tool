@@ -352,9 +352,13 @@ export default function GanttView({ projekt, onUpdate }) {
                         e.preventDefault();
                         setContextMenu({ x: e.clientX, y: e.clientY, taskId: v.id });
                       }}
-                      style={{ height: ROW_HEIGHT, ...bgStyle }}
+                      style={{
+                        height: ROW_HEIGHT,
+                        ...bgStyle,
+                        ...(istOOS ? { borderLeft: '3px solid #F59E0B' } : {}),
+                      }}
                       className="border-b cursor-pointer transition-colors group"
-                      title=""
+                      title={istOOS ? '⚠ Out-of-Sequence: Vorgänger nicht abgeschlossen' : ''}
                     >
                       {/* Zeilennummer / Collapse-Toggle */}
                       <td className="w-8 text-center font-mono select-none" style={{ color: 'var(--pm-text-muted)', fontSize: '10px' }}>
@@ -430,15 +434,6 @@ export default function GanttView({ projekt, onUpdate }) {
                         {hasChildren && isCollapsed && (
                           <span className="ml-1 text-[10px] font-normal" style={{ color: 'var(--pm-text-muted)' }}>
                             ({(childrenMap.get(v.id) || []).length})
-                          </span>
-                        )}
-                        {istOOS && (
-                          <span
-                            className="ml-1 text-[10px] px-1 py-0 rounded"
-                            style={{ background: '#F59E0B22', color: '#F59E0B', fontWeight: 600 }}
-                            title="Out-of-Sequence: Vorgänger nicht abgeschlossen"
-                          >
-                            ⚠ OOS
                           </span>
                         )}
                       </td>
@@ -605,12 +600,22 @@ export default function GanttView({ projekt, onUpdate }) {
                     updateVorgang(selectedTask.id, { fortschritt: parseInt(e.target.value) });
                   }}
                   onPointerUp={(e) => {
-                    // Beim Loslassen: einmalige OOS-Prüfung
+                    // Beim Loslassen (Maus/Touch): einmalige OOS-Prüfung
                     const val = parseInt(e.target.value);
                     const { warnung, nachricht } = pruefeFortschrittsAenderung(
                       selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
                     );
                     if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+                  }}
+                  onKeyUp={(e) => {
+                    // Bei Pfeiltasten: OOS-Prüfung beim Loslassen der Taste
+                    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+                      const val = parseInt(e.target.value);
+                      const { warnung, nachricht } = pruefeFortschrittsAenderung(
+                        selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
+                      );
+                      if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+                    }
                   }}
                   className="w-full"
                   style={{ accentColor: 'var(--pm-accent)' }}
