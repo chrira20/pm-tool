@@ -4,8 +4,9 @@
  * Unterstützt Maus-Drag und Touch-Drag
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useToast } from '../common/useToast';
+import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge } from '../../utils/dependencies';
 
 // Board-Spalten mit Fortschritts-Bereichen
 const COLUMNS = [
@@ -49,6 +50,12 @@ export default function BoardView({ projekt, onUpdate }) {
     });
   }, [projekt.vorgaenge, onUpdate]);
 
+  // Out-of-Sequence-Erkennung
+  const oosVorgaenge = useMemo(
+    () => findeOutOfSequenceVorgaenge(projekt.vorgaenge, projekt.abhaengigkeiten),
+    [projekt.vorgaenge, projekt.abhaengigkeiten]
+  );
+
   // Shared Drop-Logik (Mouse + Touch)
   const dropToColumn = useCallback((taskId, colId) => {
     const task = projekt.vorgaenge.find((v) => v.id === taskId);
@@ -62,9 +69,19 @@ export default function BoardView({ projekt, onUpdate }) {
     else if (colId === 'inArbeit') neuerFortschritt = task.fortschritt > 0 && task.fortschritt < 100 ? task.fortschritt : 50;
     else neuerFortschritt = 100;
 
+    // Out-of-Sequence-Warnung
+    if (neuerFortschritt > 0) {
+      const { warnung, nachricht } = pruefeFortschrittsAenderung(
+        taskId, neuerFortschritt, projekt.vorgaenge, projekt.abhaengigkeiten
+      );
+      if (warnung) {
+        toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+      }
+    }
+
     updateVorgang(taskId, { fortschritt: neuerFortschritt });
     toast(`"${task.name}" → ${COL_LABELS[colId]}`, 'success', 1500);
-  }, [projekt.vorgaenge, updateVorgang, toast]);
+  }, [projekt.vorgaenge, projekt.abhaengigkeiten, updateVorgang, toast]);
 
   // Gruppiere Vorgänge nach Spalten
   const columns = COLUMNS.map((col) => ({
@@ -280,6 +297,11 @@ export default function BoardView({ projekt, onUpdate }) {
                     {v.istKritisch && (
                       <span className="px-1 py-0.5 rounded text-[9px] font-semibold" style={{ background: 'var(--pm-danger-bg)', color: 'var(--pm-danger)' }}>
                         Kritisch
+                      </span>
+                    )}
+                    {oosVorgaenge.has(v.id) && (
+                      <span className="px-1 py-0.5 rounded text-[9px] font-semibold" style={{ background: '#F59E0B22', color: '#F59E0B' }} title="Out-of-Sequence: Vorgänger nicht abgeschlossen">
+                        ⚠ OOS
                       </span>
                     )}
                   </div>

@@ -11,6 +11,7 @@ import Tooltip from '../common/Tooltip';
 import { useToast } from '../common/useToast';
 import ContextMenu from '../common/ContextMenu';
 import { buildTree, flattenTree, einruecken, ausruecken, getDescendants } from '../../utils/hierarchy';
+import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge } from '../../utils/dependencies';
 
 // Höhe des Spalten-Headers (muss = HEADER_HEIGHT sein für Zeilenausrichtung)
 const COL_HEADER_H = HEADER_HEIGHT;
@@ -92,11 +93,34 @@ export default function GanttView({ projekt, onUpdate }) {
     });
   };
 
+  // Out-of-Sequence-Erkennung: Welche Vorgänge haben Fortschritt trotz offener Vorgänger?
+  const oosVorgaenge = useMemo(
+    () => findeOutOfSequenceVorgaenge(projekt.vorgaenge, projekt.abhaengigkeiten),
+    [projekt.vorgaenge, projekt.abhaengigkeiten]
+  );
+
+  /** Fortschritt setzen mit Vorgänger-Validierung (Out-of-Sequence-Warnung) */
+  const setzeFortschrittMitPruefung = (taskId, neuerFortschritt, erfolgsMeldung, erfolgTyp = 'success') => {
+    const { warnung, nachricht } = pruefeFortschrittsAenderung(
+      taskId, neuerFortschritt, projekt.vorgaenge, projekt.abhaengigkeiten
+    );
+    updateVorgang(taskId, { fortschritt: neuerFortschritt });
+    if (warnung) {
+      toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+    } else if (erfolgsMeldung) {
+      toast(erfolgsMeldung, erfolgTyp, 1500);
+    }
+  };
+
   const toggleFortschritt = (e, v) => {
     e.stopPropagation();
     const neuerFortschritt = v.fortschritt >= 100 ? 0 : 100;
-    updateVorgang(v.id, { fortschritt: neuerFortschritt });
-    toast(neuerFortschritt === 100 ? 'Abgeschlossen ✓' : 'Fortschritt zurückgesetzt', neuerFortschritt === 100 ? 'success' : 'info', 1500);
+    setzeFortschrittMitPruefung(
+      v.id,
+      neuerFortschritt,
+      neuerFortschritt === 100 ? 'Abgeschlossen ✓' : 'Fortschritt zurückgesetzt',
+      neuerFortschritt === 100 ? 'success' : 'info'
+    );
   };
 
   // Drag & Drop: Balken verschieben
@@ -301,6 +325,7 @@ export default function GanttView({ projekt, onUpdate }) {
                   const isSelected = selectedTaskId === v.id;
                   const isZebra = idx % 2 === 1;
                   const ueberfaellig = istUeberfaellig(v);
+                  const istOOS = oosVorgaenge.has(v.id);
                   const depth = depthMap.get(v.id) || 0;
                   const hasChildren = (childrenMap.get(v.id) || []).length > 0;
                   const isCollapsed = collapsedIds.has(v.id);
@@ -405,6 +430,15 @@ export default function GanttView({ projekt, onUpdate }) {
                         {hasChildren && isCollapsed && (
                           <span className="ml-1 text-[10px] font-normal" style={{ color: 'var(--pm-text-muted)' }}>
                             ({(childrenMap.get(v.id) || []).length})
+                          </span>
+                        )}
+                        {istOOS && (
+                          <span
+                            className="ml-1 text-[10px] px-1 py-0 rounded"
+                            style={{ background: '#F59E0B22', color: '#F59E0B', fontWeight: 600 }}
+                            title="Out-of-Sequence: Vorgänger nicht abgeschlossen"
+                          >
+                            ⚠ OOS
                           </span>
                         )}
                       </td>
@@ -566,9 +600,10 @@ export default function GanttView({ projekt, onUpdate }) {
                   min="0"
                   max="100"
                   value={selectedTask.fortschritt}
-                  onChange={(e) =>
-                    updateVorgang(selectedTask.id, { fortschritt: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    setzeFortschrittMitPruefung(selectedTask.id, val, null);
+                  }}
                   className="w-full"
                   style={{ accentColor: 'var(--pm-accent)' }}
                 />
@@ -752,8 +787,7 @@ export default function GanttView({ projekt, onUpdate }) {
               }},
               'separator',
               { label: 'Fortschritt → 100%', icon: '✅', onClick: () => {
-                updateVorgang(contextMenu.taskId, { fortschritt: 100 });
-                toast('Als abgeschlossen markiert', 'success');
+                setzeFortschrittMitPruefung(contextMenu.taskId, 100, 'Als abgeschlossen markiert', 'success');
               }, disabled: ctxTask?.fortschritt === 100 },
               { label: 'Fortschritt → 0%', icon: '🔄', onClick: () => {
                 updateVorgang(contextMenu.taskId, { fortschritt: 0 });
