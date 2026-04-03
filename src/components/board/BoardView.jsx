@@ -6,7 +6,7 @@
 
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { useToast } from '../common/useToast';
-import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge } from '../../utils/dependencies';
+import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge, findeGateBlockierteVorgaenge } from '../../utils/dependencies';
 
 // Board-Spalten mit Fortschritts-Bereichen
 const COLUMNS = [
@@ -56,6 +56,12 @@ export default function BoardView({ projekt, onUpdate }) {
     [projekt.vorgaenge, projekt.abhaengigkeiten]
   );
 
+  // Quality Gate Blockierung
+  const gateBlockiert = useMemo(
+    () => findeGateBlockierteVorgaenge(projekt.vorgaenge, projekt.abhaengigkeiten),
+    [projekt.vorgaenge, projekt.abhaengigkeiten]
+  );
+
   // Shared Drop-Logik (Mouse + Touch)
   const dropToColumn = useCallback((taskId, colId) => {
     const task = projekt.vorgaenge.find((v) => v.id === taskId);
@@ -69,7 +75,14 @@ export default function BoardView({ projekt, onUpdate }) {
     else if (colId === 'inArbeit') neuerFortschritt = task.fortschritt > 0 && task.fortschritt < 100 ? task.fortschritt : 50;
     else neuerFortschritt = 100;
 
-    // Out-of-Sequence-Warnung
+    // Gate-Blockierung (harter Block)
+    if (neuerFortschritt > 0 && gateBlockiert.has(taskId)) {
+      const gates = gateBlockiert.get(taskId);
+      toast(`🚫 Blockiert: Gate "${gates[0].name}" noch nicht freigegeben`, 'error', 4000);
+      return;
+    }
+
+    // Out-of-Sequence-Warnung (weiche Warnung)
     if (neuerFortschritt > 0) {
       const { warnung, nachricht } = pruefeFortschrittsAenderung(
         taskId, neuerFortschritt, projekt.vorgaenge, projekt.abhaengigkeiten
@@ -81,7 +94,7 @@ export default function BoardView({ projekt, onUpdate }) {
 
     updateVorgang(taskId, { fortschritt: neuerFortschritt });
     toast(`"${task.name}" → ${COL_LABELS[colId]}`, 'success', 1500);
-  }, [projekt.vorgaenge, projekt.abhaengigkeiten, updateVorgang, toast]);
+  }, [projekt.vorgaenge, projekt.abhaengigkeiten, updateVorgang, toast, gateBlockiert]);
 
   // Gruppiere Vorgänge nach Spalten
   const columns = COLUMNS.map((col) => ({
@@ -299,7 +312,12 @@ export default function BoardView({ projekt, onUpdate }) {
                         Kritisch
                       </span>
                     )}
-                    {oosVorgaenge.has(v.id) && (
+                    {gateBlockiert.has(v.id) && (
+                      <span className="px-1 py-0.5 rounded text-[9px] font-semibold" style={{ background: '#EF444422', color: '#EF4444' }} title={`Gate blockiert: "${gateBlockiert.get(v.id)[0]?.name}"`}>
+                        🚫 Gate
+                      </span>
+                    )}
+                    {oosVorgaenge.has(v.id) && !gateBlockiert.has(v.id) && (
                       <span className="px-1 py-0.5 rounded text-[9px] font-semibold" style={{ background: '#F59E0B22', color: '#F59E0B' }} title="Out-of-Sequence: Vorgänger nicht abgeschlossen">
                         ⚠ OOS
                       </span>

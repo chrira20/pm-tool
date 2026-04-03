@@ -115,6 +115,54 @@ export function pruefeFortschrittsAenderung(taskId, neuerFortschritt, vorgaenge,
   return { warnung: false, nachricht: '', offeneVorgaenger: [] };
 }
 
+// ─── Quality Gate Logik ──────────────────────────────────────
+
+/**
+ * Prüft ob ein Vorgang durch ein nicht-freigegebenes Quality Gate blockiert ist.
+ * Ein Gate ist ein Meilenstein mit `istGate: true` und `fortschritt < 100`.
+ * Alle Nachfolger (transitiv) eines offenen Gates werden hart blockiert.
+ *
+ * @param {string} taskId
+ * @param {Array} vorgaenge
+ * @param {Array} abhaengigkeiten
+ * @returns {{ blockiert: boolean, gates: Array<{id: string, name: string}> }}
+ */
+export function pruefeGateBlockierung(taskId, vorgaenge, abhaengigkeiten) {
+  const task = vorgaenge.find(v => v.id === taskId);
+  if (!task) return { blockiert: false, gates: [] };
+  // Gates selbst sind nie durch sich selbst blockiert
+  if (task.istGate) return { blockiert: false, gates: [] };
+  // Sammelvorgänge werden nicht blockiert (ihre Kinder einzeln schon)
+  if (task.typ === 'Sammelvorgang') return { blockiert: false, gates: [] };
+
+  const alleVorgaenger = getAlleVorgaengerTransitiv(taskId, vorgaenge, abhaengigkeiten);
+  const offeneGates = alleVorgaenger
+    .filter(v => v.istGate && v.fortschritt < 100)
+    .map(v => ({ id: v.id, name: v.name }));
+
+  return {
+    blockiert: offeneGates.length > 0,
+    gates: offeneGates,
+  };
+}
+
+/**
+ * Findet alle Vorgänge im Projekt die durch ein Gate blockiert sind.
+ *
+ * @param {Array} vorgaenge
+ * @param {Array} abhaengigkeiten
+ * @returns {Map<string, Array<{id: string, name: string}>>} taskId → blockierende Gates
+ */
+export function findeGateBlockierteVorgaenge(vorgaenge, abhaengigkeiten) {
+  const blockierteMap = new Map();
+  for (const v of vorgaenge) {
+    if (v.typ === 'Sammelvorgang' || v.istGate) continue;
+    const { blockiert, gates } = pruefeGateBlockierung(v.id, vorgaenge, abhaengigkeiten);
+    if (blockiert) blockierteMap.set(v.id, gates);
+  }
+  return blockierteMap;
+}
+
 /**
  * Findet alle Vorgänge im Projekt die aktuell Out-of-Sequence sind.
  *

@@ -118,6 +118,7 @@ function erstelleVorlage(typ) {
   } else {
     // Fachschule
     const p1 = addTask('Projektauftrag', 0, '1', 'Meilenstein');
+    p1.istGate = true; // Quality Gate: Projektauftrag muss freigegeben sein
     const phase1 = addTask('Vorbereitung', 0, '2', 'Sammelvorgang');
     const a1 = addTask('Themenrecherche', 5, '2.1', 'Vorgang', phase1.id);
     const a2 = addTask('Gliederung erstellen', 3, '2.2', 'Vorgang', phase1.id);

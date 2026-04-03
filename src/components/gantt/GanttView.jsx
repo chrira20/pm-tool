@@ -11,7 +11,7 @@ import Tooltip from '../common/Tooltip';
 import { useToast } from '../common/useToast';
 import ContextMenu from '../common/ContextMenu';
 import { buildTree, flattenTree, einruecken, ausruecken, getDescendants } from '../../utils/hierarchy';
-import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge } from '../../utils/dependencies';
+import { pruefeFortschrittsAenderung, findeOutOfSequenceVorgaenge, findeGateBlockierteVorgaenge } from '../../utils/dependencies';
 
 // Höhe des Spalten-Headers (muss = HEADER_HEIGHT sein für Zeilenausrichtung)
 const COL_HEADER_H = HEADER_HEIGHT;
@@ -99,6 +99,12 @@ export default function GanttView({ projekt, onUpdate }) {
     [projekt.vorgaenge, projekt.abhaengigkeiten]
   );
 
+  // Quality Gate Blockierung: Welche Vorgänge sind durch ein nicht-freigegebenes Gate blockiert?
+  const gateBlockiert = useMemo(
+    () => findeGateBlockierteVorgaenge(projekt.vorgaenge, projekt.abhaengigkeiten),
+    [projekt.vorgaenge, projekt.abhaengigkeiten]
+  );
+
   /** Fortschritt setzen mit Vorgänger-Validierung (Out-of-Sequence-Warnung) */
   const setzeFortschrittMitPruefung = (taskId, neuerFortschritt, erfolgsMeldung, erfolgTyp = 'success') => {
     const { warnung, nachricht } = pruefeFortschrittsAenderung(
@@ -114,7 +120,13 @@ export default function GanttView({ projekt, onUpdate }) {
 
   const toggleFortschritt = (e, v) => {
     e.stopPropagation();
+    // Gate-Blockierung prüfen (außer beim Zurücksetzen auf 0%)
     const neuerFortschritt = v.fortschritt >= 100 ? 0 : 100;
+    if (neuerFortschritt > 0 && gateBlockiert.has(v.id)) {
+      const gates = gateBlockiert.get(v.id);
+      toast(`🚫 Blockiert: Gate "${gates[0].name}" noch nicht freigegeben`, 'error', 4000);
+      return;
+    }
     setzeFortschrittMitPruefung(
       v.id,
       neuerFortschritt,
@@ -326,6 +338,8 @@ export default function GanttView({ projekt, onUpdate }) {
                   const isZebra = idx % 2 === 1;
                   const ueberfaellig = istUeberfaellig(v);
                   const istOOS = oosVorgaenge.has(v.id);
+                  const istGateBlockiert = gateBlockiert.has(v.id);
+                  const blockierendeGates = istGateBlockiert ? gateBlockiert.get(v.id) : [];
                   const depth = depthMap.get(v.id) || 0;
                   const hasChildren = (childrenMap.get(v.id) || []).length > 0;
                   const isCollapsed = collapsedIds.has(v.id);
@@ -355,10 +369,13 @@ export default function GanttView({ projekt, onUpdate }) {
                       style={{
                         height: ROW_HEIGHT,
                         ...bgStyle,
-                        ...(istOOS ? { borderLeft: '3px solid #F59E0B' } : {}),
+                        ...(istGateBlockiert ? { borderLeft: '3px solid #EF4444' }
+                          : istOOS ? { borderLeft: '3px solid #F59E0B' } : {}),
                       }}
                       className="border-b cursor-pointer transition-colors group"
-                      title={istOOS ? '⚠ Out-of-Sequence: Vorgänger nicht abgeschlossen' : ''}
+                      title={istGateBlockiert
+                        ? `🚫 Gate blockiert: "${blockierendeGates[0]?.name}" noch nicht freigegeben`
+                        : istOOS ? '⚠ Out-of-Sequence: Vorgänger nicht abgeschlossen' : ''}
                     >
                       {/* Zeilennummer / Collapse-Toggle / OOS-Warnung */}
                       <td className="w-8 text-center font-mono select-none" style={{ color: 'var(--pm-text-muted)', fontSize: '10px' }}>
@@ -370,6 +387,8 @@ export default function GanttView({ projekt, onUpdate }) {
                           >
                             {isCollapsed ? '▸' : '▾'}
                           </button>
+                        ) : istGateBlockiert ? (
+                          <span style={{ color: '#EF4444', fontSize: '12px' }} title={`Gate blockiert: "${blockierendeGates[0]?.name}" noch nicht freigegeben`}>🚫</span>
                         ) : istOOS ? (
                           <span style={{ color: '#F59E0B', fontSize: '13px' }} title="Out-of-Sequence: Vorgänger nicht abgeschlossen">⚠</span>
                         ) : (
@@ -430,7 +449,13 @@ export default function GanttView({ projekt, onUpdate }) {
                         }}
                       >
                         {istMeilenstein && (
-                          <span className="mr-1 text-xs" style={{ color: 'var(--pm-milestone)' }}>◆</span>
+                          v.istGate ? (
+                            <span className="mr-1 text-xs" title="Quality Gate – blockiert Nachfolger bis Freigabe" style={{ color: v.fortschritt >= 100 ? 'var(--pm-success)' : '#EF4444' }}>
+                              {v.fortschritt >= 100 ? '🔓' : '🔒'}
+                            </span>
+                          ) : (
+                            <span className="mr-1 text-xs" style={{ color: 'var(--pm-milestone)' }}>◆</span>
+                          )
                         )}
                         {v.name}
                         {hasChildren && isCollapsed && (
@@ -588,41 +613,72 @@ export default function GanttView({ projekt, onUpdate }) {
               </div>
 
               {/* Fortschritt */}
-              <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--pm-text-muted)' }}>
-                  Fortschritt: {selectedTask.fortschritt}%
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={selectedTask.fortschritt}
-                  onChange={(e) => {
-                    // Während des Ziehens: nur Wert setzen, keine OOS-Prüfung
-                    updateVorgang(selectedTask.id, { fortschritt: parseInt(e.target.value) });
-                  }}
-                  onPointerUp={(e) => {
-                    // Beim Loslassen (Maus/Touch): einmalige OOS-Prüfung
-                    const val = parseInt(e.target.value);
-                    const { warnung, nachricht } = pruefeFortschrittsAenderung(
-                      selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
-                    );
-                    if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
-                  }}
-                  onKeyUp={(e) => {
-                    // Bei Pfeiltasten: OOS-Prüfung beim Loslassen der Taste
-                    if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
-                      const val = parseInt(e.target.value);
-                      const { warnung, nachricht } = pruefeFortschrittsAenderung(
-                        selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
-                      );
-                      if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
-                    }
-                  }}
-                  className="w-full"
-                  style={{ accentColor: 'var(--pm-accent)' }}
-                />
-              </div>
+              {(() => {
+                const selGateBlock = gateBlockiert.has(selectedTask.id);
+                const selGates = selGateBlock ? gateBlockiert.get(selectedTask.id) : [];
+                return (
+                  <div>
+                    <label className="block text-xs mb-1" style={{ color: 'var(--pm-text-muted)' }}>
+                      Fortschritt: {selectedTask.fortschritt}%
+                    </label>
+                    {selGateBlock && (
+                      <div className="flex items-center gap-1.5 mb-1.5 px-2 py-1.5 rounded-lg text-xs"
+                        style={{ background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>
+                        <span>🚫</span>
+                        <span>Gate „{selGates[0]?.name}" nicht freigegeben{selGates.length > 1 ? ` (+${selGates.length - 1} weitere)` : ''}</span>
+                      </div>
+                    )}
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={selectedTask.fortschritt}
+                      disabled={selGateBlock}
+                      onChange={(e) => {
+                        if (selGateBlock) return;
+                        updateVorgang(selectedTask.id, { fortschritt: parseInt(e.target.value) });
+                      }}
+                      onPointerUp={(e) => {
+                        if (selGateBlock) return;
+                        const val = parseInt(e.target.value);
+                        const { warnung, nachricht } = pruefeFortschrittsAenderung(
+                          selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
+                        );
+                        if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+                      }}
+                      onKeyUp={(e) => {
+                        if (selGateBlock) return;
+                        if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)) {
+                          const val = parseInt(e.target.value);
+                          const { warnung, nachricht } = pruefeFortschrittsAenderung(
+                            selectedTask.id, val, projekt.vorgaenge, projekt.abhaengigkeiten
+                          );
+                          if (warnung) toast(`⚠ Out-of-Sequence: ${nachricht}`, 'warning', 4000);
+                        }
+                      }}
+                      className="w-full"
+                      style={{ accentColor: selGateBlock ? '#94A3B8' : 'var(--pm-accent)', opacity: selGateBlock ? 0.4 : 1 }}
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* Quality Gate Toggle (nur für Meilensteine) */}
+              {selectedTask.typ === 'Meilenstein' && (
+                <div className="flex items-center gap-2 py-1">
+                  <button
+                    onClick={() => updateVorgang(selectedTask.id, { istGate: !selectedTask.istGate })}
+                    className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs transition-colors"
+                    style={{
+                      background: selectedTask.istGate ? '#FEF2F2' : 'var(--pm-row-summary)',
+                      color: selectedTask.istGate ? '#DC2626' : 'var(--pm-text-muted)',
+                      border: `1px solid ${selectedTask.istGate ? '#FECACA' : 'var(--pm-border)'}`,
+                    }}
+                  >
+                    {selectedTask.istGate ? '🔒' : '🔓'} Quality Gate {selectedTask.istGate ? 'aktiv' : 'setzen'}
+                  </button>
+                </div>
+              )}
 
               {/* PSP-Code */}
               <div>
@@ -801,7 +857,19 @@ export default function GanttView({ projekt, onUpdate }) {
                 toast(`"${orig.name}" dupliziert`, 'success');
               }},
               'separator',
+              ...(ctxTask?.typ === 'Meilenstein' ? [
+                { label: ctxTask.istGate ? '🔓 Gate entfernen' : '🔒 Als Quality Gate', icon: ctxTask.istGate ? '🔓' : '🔒', onClick: () => {
+                  updateVorgang(contextMenu.taskId, { istGate: !ctxTask.istGate });
+                  toast(ctxTask.istGate ? 'Quality Gate entfernt' : 'Quality Gate gesetzt – blockiert Nachfolger', ctxTask.istGate ? 'info' : 'warning', 3000);
+                }},
+                'separator',
+              ] : []),
               { label: 'Fortschritt → 100%', icon: '✅', onClick: () => {
+                if (gateBlockiert.has(contextMenu.taskId)) {
+                  const gates = gateBlockiert.get(contextMenu.taskId);
+                  toast(`🚫 Blockiert: Gate "${gates[0].name}" noch nicht freigegeben`, 'error', 4000);
+                  return;
+                }
                 setzeFortschrittMitPruefung(contextMenu.taskId, 100, 'Als abgeschlossen markiert', 'success');
               }, disabled: ctxTask?.fortschritt === 100 },
               { label: 'Fortschritt → 0%', icon: '🔄', onClick: () => {

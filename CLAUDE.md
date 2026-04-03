@@ -103,6 +103,8 @@ Falls nicht direkt erreichbar, hier die Kern-Abschnitte:
 - [x] Keyboard-Shortcuts: Entf (Löschen), F2 (Umbenennen/Name fokussieren), Ins (Neuer Vorgang unterhalb), Esc (Abwählen) in Gantt; Strg+N (Neues Projekt), Strg+E (Einstellungen) global; Shortcuts-Legende am unteren Rand der Gantt-Ansicht
 - [x] Auswirkungs-Feedback: Blaue Info-Bar zeigt nach terminrelevanten Änderungen verschobene Vorgänge und Projektende-Delta, 4s Auto-Dismiss, manuell schließbar
 - [x] PSP-Navigation: Baumstruktur mit Ein-/Ausklappen (▸/▾), Einrücken (Tab) / Ausrücken (Shift+Tab), Tiefenbasierte Einrückung, Kinderzähler bei eingeklappten Sammelvorgängen, Kaskadenlöschung, Kontextmenü-Aktionen, Vorlagen mit Hierarchie (Sammelvorgang-Phasen)
+- [x] Out-of-Sequence-Erkennung: Transitive Vorgänger-Kettenprüfung (inspiriert von Primavera P6 Flexible-Modus), gelbe Warnmarkierung in Gantt + Board, Toast-Warnung bei Fortschrittsänderung, Slider/Checkbox/Kontextmenü/Pfeiltasten-Support, Deduplizierte Toasts
+- [x] Quality Gates: Meilensteine als Gate markierbar (`istGate: true`), hart-blockiert Nachfolger-Fortschritt bis Gate auf 100%, 🔒/🔓-Symbol, rote Zeilen-Markierung, deaktivierter Slider + Hinweis-Banner im Detail-Panel, Gate-Toggle per Kontextmenü + Detail-Panel, Board-Drag-Blockierung, Fachschule-Vorlage mit Gate auf Projektauftrag
 
 ### Offen (TODO – Priorität absteigend)
 

@@ -46,6 +46,7 @@ import { v4 as uuidv4 } from 'uuid';
  * @property {number|null} gesamtpuffer - GP = SAZ - FAZ (berechnet)
  * @property {number|null} freierPuffer - FP (berechnet)
  * @property {boolean} istKritisch - true wenn GP = 0 (berechnet)
+ * @property {boolean} istGate - true = Quality Gate (Meilenstein blockiert Nachfolger bis Freigabe)
  * @property {number} fortschritt - 0–100
  * @property {string|null} istStart - Tatsächlicher Starttermin
  * @property {string|null} istEnde - Tatsächlicher Endtermin
@@ -138,6 +139,7 @@ export function createTask(projektId, overrides = {}) {
     gesamtpuffer: null,
     freierPuffer: null,
     istKritisch: false,
+    istGate: false,
     fortschritt: 0,
     istStart: null,
     istEnde: null,
